@@ -1,0 +1,39 @@
+name: get_x_storage_secure
+description: "Keep secrets in the operating system's own store - AndroidKeyStore, DPAPI, the Keychain, libsecret - with a key/value layer over them."
+version: 0.0.1
+
+environment:
+  sdk: ^3.13.5
+  flutter: '>=3.3.0'
+
+dependencies:
+  crypto: ^3.0.3
+  ffi: ^2.2.0
+  flutter:
+    sdk: flutter
+  jni: ^1.1.0
+  jni_flutter: ^1.0.4+1
+  win32: ^6.2.0
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+  jnigen: 1.0.1
+
+# pluginClass and package are unnecessary here: no method channel is used, and
+# ffiPlugin only has the native library built and bundled, which is all the
+# Dart side needs to reach the OS secret store through dart:ffi or package:jni.
+flutter:
+  plugin:
+    platforms:
+      android:
+        ffiPlugin: true
+      ios:
+        ffiPlugin: true
+      linux:
+        ffiPlugin: true
+      macos:
+        ffiPlugin: true
+      windows:
+        ffiPlugin: true

@@ -1,0 +1,23 @@
+# What `dart pub publish` must leave out. This folder is not a git repository
+# yet, so .pubignore — gitignore syntax, and it replaces pub's own defaults
+# entirely — is what the packager reads. Keep it in step with .gitignore.
+
+# Build output.
+build/
+/coverage/
+**/.cxx/
+**/.gradle/
+**/local.properties
+**/doc/api/
+.dart_tool/
+.build/
+.flutter-plugins-dependencies
+pubspec.lock
+
+# Editor and machine state.
+/.idea/
+*.iml
+
+# An earlier round's own archive, and the copy of the package unpacked beside it.
+/get_x_storage_secure.zip
+/get_x_storage_secure/
