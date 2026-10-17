@@ -1,19 +1,21 @@
 name: get_x_storage_secure
 description: "Keep secrets in the operating system's own store - AndroidKeyStore, DPAPI, the Keychain, libsecret - with a key/value layer over them."
-version: 0.0.1
+version: 1.0.0
+homepage: "https://github.com/SwanFlutter/get_x_storage_secure"
 
 environment:
   sdk: ^3.13.5
-  flutter: '>=3.3.0'
+  # Verified on Flutter 3.47 / Dart 3.13.5; jni and win32 both need Dart 3.5+.
+  flutter: '>=3.47.0'
 
 dependencies:
-  crypto: ^3.0.3
+  crypto: ^3.0.7
   ffi: ^2.2.0
   flutter:
     sdk: flutter
   jni: ^1.1.0
   jni_flutter: ^1.0.4+1
-  win32: ^6.2.0
+  win32: ^6.4.0
 
 dev_dependencies:
   flutter_lints: ^6.0.0

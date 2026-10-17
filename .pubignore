@@ -1,6 +1,6 @@
-# What `dart pub publish` must leave out. This folder is not a git repository
-# yet, so .pubignore — gitignore syntax, and it replaces pub's own defaults
-# entirely — is what the packager reads. Keep it in step with .gitignore.
+# What `dart pub publish` must leave out. When this file exists, pub uses it in
+# place of the .gitignore-derived list, so it repeats the entries that matter
+# here and adds the ones only a published archive cares about.
 
 # Build output.
 build/
@@ -12,7 +12,7 @@ build/
 .dart_tool/
 .build/
 .flutter-plugins-dependencies
-pubspec.lock
+/pubspec.lock
 
 # Editor and machine state.
 /.idea/

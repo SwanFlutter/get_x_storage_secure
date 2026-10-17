@@ -236,7 +236,7 @@ real lookup and discards the value.
 | Platform | What was checked here |
 | --- | --- |
 | Windows | `flutter test` in the package — 66 pass, 34 skip (the Android, Apple and Linux groups are off-platform): the vault contract against real DPAPI (read-back, overwrite, replay under another alias, tamper detection, the 128-char alias limit, a raised cap), the storage contract over a memory vault and over real DPAPI, and the option validation. `flutter build windows` in `example/` succeeds, and `flutter test integration_test -d windows` runs all three files: the two-tab demo tap-through, the vault contract, and the storage contract against DPAPI with a fresh namespace per case. |
-| Android | `flutter build apk --debug` succeeds with the `io.github.swanflutter` package name. On a Xperia XQ-AD51 (API 28, arm64) all three `example/integration_test` files pass through `flutter test integration_test -d <device>`: the vault contract (11 cases) against the real AndroidKeyStore, the storage contract (17 cases) — including keys that differ only in case, values split across parts, and 20 concurrent writes — and the two-tab demo tap-through. That also proves the JNI call works from a worker isolate. Being API 28, the runs go through the StrongBox attempt, so the `StrongBoxUnavailableException` fallback is covered whichever way the chip answered. **Not yet exercised on-device:** the `requireUserAuthentication` gate, which needs a secured lock screen and a real prompt, and `readAll` on a device with a lock-screen change after writing. |
+| Android | `flutter build apk --debug` succeeds with the `io.github.swanflutter` package name, as does a fresh install under the example's own `io.github.swanflutter.get_x_storage_secure_example` id. All three `example/integration_test` files pass through `flutter test integration_test -d <device>` on a Sony H9436 (API 29, arm64): the vault contract (11 cases) against the real AndroidKeyStore, the storage contract (17 cases) — including keys that differ only in case, values split across parts, and 20 concurrent writes — and the two-tab demo tap-through. The same two contracts and the demo passed earlier on a Xperia XQ-AD51 (API 28), so both runs go through the StrongBox attempt and the `StrongBoxUnavailableException` fallback, whichever way the chip answered, and both prove the JNI call works from a worker isolate. **Not yet exercised on-device:** the `requireUserAuthentication` gate, which needs a secured lock screen and a real prompt. |
 | iOS, macOS | Analyzer-clean FFI only. Cannot be compiled or run on a Windows host, so the `SecAccessControl` gate and the sync rules are unverified. |
 | Linux | Analyzer-clean FFI only. No libsecret and no Secret Service on this host. |
 | Web | Both layers compile and answer `UnsupportedError` through the conditional-import stub; `dart analyze` passes for the web target. |
@@ -267,9 +267,13 @@ a second copy drifting.
 
 ## Package notes
 
-* The Android package and the Linux application id are
-  `io.github.swanflutter.get_x_storage_secure`, not the template's
-  `com.example`.
+* The plugin's Android package is `io.github.swanflutter.get_x_storage_secure`
+  and the example app is `io.github.swanflutter.get_x_storage_secure_example`
+  (namespace, `applicationId` and `MainActivity`'s package), with
+  `io.github.swanflutter.get_x_storage_secure_example` as the Linux
+  `APPLICATION_ID` — none of them the template's `com.example`. Both podspecs
+  carry the GitHub homepage, an MIT licence pointing at `../LICENSE` and
+  `s.author = 'Swan Flutter'`; no email is claimed anywhere.
 * `src/` and the per-platform native build files still hold the template's tiny
   C library. Nothing in `lib/` calls it; `pubspec.yaml` declares `ffiPlugin:
   true` for each platform, and those build graphs (`android/build.gradle` runs
@@ -282,6 +286,15 @@ a second copy drifting.
 * `/android/.cxx/` and `**/local.properties` are gitignored. `local.properties`
   must stay on disk — `tool/jnigen.dart` reads `sdk.dir` out of it — but it is
   this machine's SDK path and has no business in a repository or a zip.
+* `LICENSE` is MIT, `pubspec.yaml` carries the homepage, and the version is
+  1.0.0 in `pubspec.yaml`, `CHANGELOG.md` and both podspecs.
+  `dart pub publish --dry-run` packs 282 KB. `.pubignore` **replaces** the
+  `.gitignore`-derived list pub would otherwise use, so it re-lists build
+  output, `.idea` and `*.iml`, plus `/pubspec.lock` anchored at the root —
+  `example/pubspec.lock` is an app lockfile and belongs both in git and in the
+  archive. It also drops the stale `get_x_storage_secure.zip` and the unpacked
+  duplicate directory beside it, both still on disk and both to delete before
+  the next zip.
 
 Two build-environment notes for this machine: Gradle needs a JDK no newer than
 21 — with `C:\Program Files\Java\jdk-26.0.1` as `JAVA_HOME`, AGP's `jlink` step

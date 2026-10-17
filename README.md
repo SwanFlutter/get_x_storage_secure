@@ -16,11 +16,62 @@ If you only need to cache tokens and settings, use `SecureStorage`. Keep
 `SecretVault` for a key your own crypto uses, so that the key never has to be
 turned into a string.
 
+## Install
+
+The package is version `1.0.0` and is not on pub.dev yet: a local path works
+today, and the git ref works as soon as the repository is public.
+
+```yaml
+# pubspec.yaml — a checkout on this machine
+dependencies:
+  get_x_storage_secure:
+    path: ../get_x_storage_secure
+
+# pubspec.yaml — once this repository is pushed
+dependencies:
+  get_x_storage_secure:
+    git:
+      url: https://github.com/SwanFlutter/get_x_storage_secure.git
+      ref: v1.0.0
+```
+
+After publishing, that becomes `flutter pub add get_x_storage_secure` or
+`get_x_storage_secure: ^1.0.0`.
+
+Nothing to add to any manifest, entitlements file, or Gradle script: the plugin
+registers itself per platform. Two platform-level conditions do apply.
+
+* **Minimum OS**: Android API 23 (`compileSdk` 36), iOS 15, macOS 10.11,
+  Windows 10 or later, and on Linux a keyring daemon plus `libsecret-1` and
+  `libglib-2.0`.
+* **Dart/Flutter**: Dart 3.13.5 or newer, Flutter 3.47 or newer.
+
+### Where each platform stands
+
+| Platform | Store used | Status |
+| --- | --- | --- |
+| Android | AndroidKeyStore, one non-exportable AES-256-GCM key per alias | Verified on a device |
+| Windows | DPAPI (user scope) blobs under `%LOCALAPPDATA%\<namespace>\secure_vault` | Verified |
+| iOS / macOS | Keychain `kSecClassGenericPassword` | Written, not runnable on this host |
+| Linux | libsecret / Secret Service | Written, not runnable on this host |
+| Web | none — browsers expose no OS keystore to Dart | `UnsupportedError` by design |
+
+On the web both layers throw rather than fall back to plain `localStorage`, so a
+secret silently readable by anyone who opens DevTools is not an option this
+package offers by accident.
+
 ## SecretVault
 
 ```dart
+import 'dart:math';
+import 'dart:typed_data';
+
 final SecretVault vault = createPlatformVault();
-await vault.write('master_key', secret);          // Uint8List
+final Uint8List secret = Uint8List.fromList(
+  List<int>.generate(32, (_) => Random.secure().nextInt(256)),
+);
+
+await vault.write('master_key', secret);          // one alias, one secret
 final Uint8List? recovered = await vault.read('master_key');
 final bool present = await vault.contains('master_key');
 await vault.delete('master_key');                 // a missing alias is a no-op
@@ -29,6 +80,9 @@ await vault.delete('master_key');                 // a missing alias is a no-op
 * `read` answers `null` when the alias is absent **or** the protected data
   became unrecoverable (key invalidated, another device restored a backup).
   There is no recovery path to report, so this is never an exception.
+* `createPlatformVault({namespace, options})` picks the backend. `namespace`
+  separates one app's aliases from another's (`get_x_storage_secure` by default,
+  `[A-Za-z0-9._-]{1,64}`), and `VaultOptions` is described below.
 * Aliases match `[A-Za-z0-9._-]{1,128}`; a secret is 1 KB by default, raised per
   backend with `VaultOptions(maxSecretBytes: …)` up to 256 KB.
 * A facility that cannot be used at all throws `VaultUnavailableException`;
@@ -41,13 +95,13 @@ await vault.delete('master_key');                 // a missing alias is a no-op
 
 ```dart
 final SecureStorage store = SecureStorage();
-await store.write('session_token', token);
+await store.write('session_token', 'the token text');
 final String? token = await store.read('session_token');
 final List<String> keys = await store.getKeys();
 final Map<String, String> all = await store.readAll();
 await store.delete('session_token');              // a missing key is a no-op
 await store.deleteAll();
-store.changes.listen((c) => render(c));           // names the key, never the value
+store.changes.listen((SecureStorageChange c) => render(c)); // key, never value
 ```
 
 What that buys over the raw vault:
@@ -61,6 +115,8 @@ What that buys over the raw vault:
 * **Listing.** `getKeys`, `readAll` and `deleteAll` work because the key names
   travel through a vault entry themselves — the keystore, DPAPI and the Keychain
   offer no way to enumerate what they hold.
+* **Cleanup.** `deleteAll()` removes every value this store can name;
+  `dispose()` only closes `changes` and leaves the stored values alone.
 
 Options are per platform, in the spirit of `IOSOptions`/`AndroidOptions`:
 
@@ -82,7 +138,6 @@ final SecureStorage store = SecureStorage(
   ),
 );
 ```
-
 The authentication gates make a secret unreadable until the user passes biometrics
 or the device credential: Android keys carry `setUserAuthenticationParameters`,
 Apple items carry a `SecAccessControl`. Either way an unreadable secret raises
@@ -146,18 +201,33 @@ a backup:
 * `example/` — a two-tab app: the vault page holds a 32-byte master key, the
   key-value page drives `SecureStorage`.
 
-## Testing
+## Example and tests
+
+`example/` is a two-tab app: the Vault page writes, recovers and deletes a
+32-byte master key; the Key-value page drives `SecureStorage` and shows the
+change stream.
 
 ```sh
 dart analyze lib test tool example
-flutter test                                   # contract tests; non-native suites skip
+flutter test                                   # contracts; off-platform suites skip
 cd example
+flutter build windows                          # or apk / ios
 flutter test integration_test -d windows       # demo + both contracts on DPAPI
-flutter test integration_test -d <device>      # on a phone with the screen awake
+flutter test integration_test -d <device>      # on a phone, screen awake
 ```
 
-`test/vault_contract.dart` and `test/secure_storage_contract.dart` hold the
-expectations once and each backend runs them, so a new platform is judged by the
-same list. `tool/jnigen.dart` regenerates the Android bindings after the Kotlin
-helper changes; `NOTES.md` covers that, the per-platform assumptions, and the
-OS minimums.
+`test/vault_contract.dart` (11 cases) and `test/secure_storage_contract.dart`
+(17 cases) hold the expectations once and every backend runs the same list —
+against real DPAPI and a real AndroidKeyStore in `example/integration_test/`,
+against a memory vault in `flutter test`, where a 64-byte cap forces almost
+every record through the split path. On the current host: 66 tests pass and 34
+skip (Android, Apple, Linux), and all three integration files pass on Windows
+and on an API 28 phone.
+
+`tool/jnigen.dart` regenerates the Android bindings after the Kotlin helper
+changes; `NOTES.md` covers that, the per-platform assumptions, the OS minimums
+and what has not been verified.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
